@@ -1,97 +1,65 @@
-import React, { useState, useEffect } from 'react'
-import axios from 'axios';
-import './App.css'
-
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition
-const mic = new SpeechRecognition()
-
-mic.continuous = true
-mic.interimResults = true
-mic.lang = 'en-US'
+import React, { useState, useCallback } from 'react';
+import { VoiceRecorder } from './components/VoiceRecorder';
+import { NotesList } from './components/NotesList';
+import { classifyText } from './services/api';
+import './App.css';
 
 function App() {
-  const [isListening, setIsListening] = useState(false)
-  const [note, setNote] = useState(null)
-  const [savedNotes, setSavedNotes] = useState([])
+  const [notes, setNotes] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
-  useEffect(() => {
-    handleListen()
-  }, [isListening])
-
-  const handleListen = () => {
-    if (isListening) {
-      mic.start()
-      mic.onend = () => {
-        console.log('continue..')
-        mic.start()
-      }
-    } else {
-      mic.stop()
-      mic.onend = () => {
-        console.log('Stopped Mic on Click')
-      }
+  const handleSave = useCallback(async (text) => {
+    if (!text) return;
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const result = await classifyText(text);
+      setNotes((prev) => [
+        {
+          text,
+          isProfane: result.prof,
+          reason: result.reason || '',
+          method: result.method || 'vocab',
+          time: new Date().toLocaleTimeString(),
+        },
+        ...prev,
+      ]);
+    } catch (err) {
+      setApiError(err.message);
+    } finally {
+      setIsSaving(false);
     }
-    mic.onstart = () => {
-      console.log('Mics on')
-    }
+  }, []);
 
-    mic.onresult = event => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0])
-        .map(result => result.transcript)
-        .join('')
-      console.log(transcript)
-      setNote(transcript);
-      mic.onerror = event => {
-        console.log(event.error)
-      }
-    }
-  }
-
-  const handleSaveNote = () => {
-   // console.log(note);
-   axios.post('http://localhost:5000/add', {
-    text: note
-  })
-   .then(function (response) {
-     console.log(response.data);
-     var final = note + "----after-classification-it-is-a-foul-text:" + response.data.prof
-     console.log(final);
-     setSavedNotes([...savedNotes, final])
-     setNote('')
-   })
-   .catch(function (error) {
-     // handle error
-     console.log(error);
-   })
-
-  }
+  const handleClear = useCallback(() => setNotes([]), []);
 
   return (
-    <>
-      <h1>Voice Notes</h1>
-      <div className="container">
-        <div className="box">
-          <h2>Current Note</h2>
-          {isListening ? <span>🎙️</span> : <span>🛑🎙️</span>}
-          <button onClick={handleSaveNote} disabled={!note}>
-            Save Note
-          </button>
-          <button onClick={() => setIsListening(prevState => !prevState)}>
-            Start/Stop
-          </button>
-          <p>{note}</p>
+    <div className="app">
+      <header className="app-header">
+        <div className="header-content">
+          <h1 className="app-title">The Whack Hack</h1>
+          <p className="app-subtitle">Real-time Speech Profanity Detection</p>
         </div>
-        <div className="box">
-          <h2>Notes</h2>
-          {savedNotes.map(n => (
-            <p key={n}>{n}</p>
-          ))}
+      </header>
+
+      <main className="app-main">
+        {apiError && (
+          <div className="alert alert-error global-error">
+            Backend error: {apiError}. Make sure the server is running.
+          </div>
+        )}
+        <div className="grid">
+          <VoiceRecorder onSave={handleSave} isSaving={isSaving} />
+          <NotesList notes={notes} onClear={handleClear} />
         </div>
-      </div>
-    </>
-  )
+      </main>
+
+      <footer className="app-footer">
+        <p>Smart India Hackathon &mdash; Profanity Detection System</p>
+      </footer>
+    </div>
+  );
 }
 
-export default App
+export default App;

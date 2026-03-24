@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
